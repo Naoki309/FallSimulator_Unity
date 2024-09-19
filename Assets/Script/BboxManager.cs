@@ -9,7 +9,7 @@
         private string username = "naoki";      // Ubuntuのユーザー名
         private string password = "401402";     // Ubuntuのパスワード
         private string pythonScriptPath = "/home/naoki/votenet/demo.py";  // Ubuntu上のPythonスクリプトパス
-        private string pythonVirtualEnvironmentPath = "/home/naoki/votenet_env/bin/python";  // Ubuntu上のPython仮想環境パス
+        
         void Start()
         {
 

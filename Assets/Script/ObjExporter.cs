@@ -3,72 +3,76 @@ using UnityEngine;
 
 public class ObjExporter : MonoBehaviour
 {
-    // 共有フォルダのパス（Windows側）
-    public string sharedFolderPath = @"C:\SharedFolder\";
-    
-    // OBJファイル名
-    public string objFileName = "test_room.obj";
+    public string outputFolderPath = @"C:\SharedFolder";  // 出力フォルダパス
 
     void Start()
     {
-        // シーン開始時にOBJファイルを生成・保存
-        GenerateAndExportOBJ();
-    }
+        // GameObject.Findを使用して階層内のオブジェクトを正確に指定
+        string objectPath = "Funiture/Sofa_17/mesh";
+        GameObject objectToExport = GameObject.Find(objectPath);
 
-    /// <summary>
-    /// OBJデータを共有フォルダに保存します。
-    /// </summary>
-    /// <param name="objData">保存するOBJデータ</param>
-    public void ExportOBJ(string objData)
-    {
-        // 共有フォルダが存在しない場合は作成
-        if (!Directory.Exists(sharedFolderPath))
+        if (objectToExport != null)
         {
-            Directory.CreateDirectory(sharedFolderPath);
-            Debug.Log("共有フォルダを作成しました: " + sharedFolderPath);
+            // オブジェクトが見つかった場合、OBJファイルとしてエクスポート
+            ExportObjectToOBJ(objectToExport, outputFolderPath);
         }
-
-        // 一時ファイル名（競合防止）
-        string tempFileName = objFileName + ".tmp";
-        string tempFilePath = Path.Combine(sharedFolderPath, tempFileName);
-        string finalFilePath = Path.Combine(sharedFolderPath, objFileName);
-
-        try
+        else
         {
-            // 一時ファイルにOBJデータを書き込み
-            File.WriteAllText(tempFilePath, objData);
-            Debug.Log("一時ファイルにOBJデータを書き込みました: " + tempFilePath);
-            
-            // 既に同名のファイルが存在する場合は削除
-            if (File.Exists(finalFilePath))
-            {
-                File.Delete(finalFilePath);
-                Debug.Log("既存のOBJファイルを削除しました: " + finalFilePath);
-            }
-
-            // 一時ファイルを最終ファイル名にリネーム
-            File.Move(tempFilePath, finalFilePath);
-            Debug.Log("OBJファイルを共有フォルダに保存しました: " + finalFilePath);
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError("OBJファイルの保存中にエラーが発生しました: " + ex.Message);
+            Debug.LogError("Object not found at path: " + objectPath);
         }
     }
 
-    /// <summary>
-    /// 実際のエクスポート処理（テスト用）
-    /// </summary>
-    public void GenerateAndExportOBJ()
+    public void ExportObjectToOBJ(GameObject obj, string folderPath)
     {
-        // テスト用に簡単なOBJデータを作成
-        string objData = @"
-v 0.000000 0.000000 0.000000
-v 1.000000 0.000000 0.000000
-v 1.000000 1.000000 0.000000
-v 0.000000 1.000000 0.000000
-f 1 2 3 4
-";
-        ExportOBJ(objData);
+        string objFileName = obj.name + ".obj";
+        string fullPath = Path.Combine(folderPath, objFileName);
+
+        MeshFilter meshFilter = obj.GetComponent<MeshFilter>();
+        if (meshFilter == null)
+        {
+            Debug.LogError("No MeshFilter found on object: " + obj.name);
+            return;
+        }
+
+        Mesh mesh = meshFilter.mesh;
+        using (StreamWriter writer = new StreamWriter(fullPath))
+        {
+            writer.Write(MeshToString(mesh, obj.transform));
+            Debug.Log("OBJ file exported to: " + fullPath);
+        }
+    }
+
+    private string MeshToString(Mesh mesh, Transform transform)
+    {
+        StringWriter sw = new StringWriter();
+        sw.WriteLine("# Exported from Unity");
+        sw.WriteLine("o " + transform.name);
+
+        foreach (Vector3 v in mesh.vertices)
+        {
+            Vector3 worldPos = transform.TransformPoint(v);
+            sw.WriteLine(string.Format("v {0} {1} {2}", worldPos.x, worldPos.y, worldPos.z));
+        }
+
+        foreach (Vector3 n in mesh.normals)
+        {
+            Vector3 worldNormal = transform.TransformDirection(n);
+            sw.WriteLine(string.Format("vn {0} {1} {2}", worldNormal.x, worldNormal.y, worldNormal.z));
+        }
+
+        foreach (Vector2 uv in mesh.uv)
+        {
+            sw.WriteLine(string.Format("vt {0} {1}", uv.x, uv.y));
+        }
+
+        for (int i = 0; i < mesh.triangles.Length; i += 3)
+        {
+            int idx0 = mesh.triangles[i] + 1;
+            int idx1 = mesh.triangles[i + 1] + 1;
+            int idx2 = mesh.triangles[i + 2] + 1;
+            sw.WriteLine(string.Format("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2}", idx0, idx1, idx2));
+        }
+
+        return sw.ToString();
     }
 }
